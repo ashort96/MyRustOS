@@ -76,7 +76,8 @@ fn kmain()
   let mut my_uart = uart::Uart::new(0x1000_0000);
   my_uart.init();
 
-  println!("This is my operating system!");
+  println!("SOS (Short Operating System)");
+  println!("Following Dr. Marz's tutorial on http://osblog.stephenmarz.com/");
   loop
   {
     if let Some(c) = my_uart.get()

@@ -60,7 +60,7 @@ impl Uart
       let divisor_most = ((divisor >> 8) & 0xff).try_into().unwrap();
 
       // Set the DLAB
-      lcr.write_volatile(1 << 7);
+      lcr.write_volatile(lcr.read_volatile() | (1 << 7));
 
       // Put the divisor into DLL and DLM
       dll.write_volatile(divisor_least);
