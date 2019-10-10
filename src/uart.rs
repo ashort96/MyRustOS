@@ -37,10 +37,13 @@ impl Uart
     unsafe
     {
 
+      // Rust gets mad if you don't use snake case
       let ier = ptr.add(1) as *mut u8;
       let fcr = ptr.add(2) as *mut u8;
       let lcr = ptr.add(3) as *mut u8;
 
+      // Divisor registers. DLL holds the lower 8 bits, and DLM holds the higher
+      // 8 bits.
       let dll = ptr as *mut u8;
       let dlm = ptr.add(1) as *mut u8;
 
@@ -74,7 +77,8 @@ impl Uart
     let ptr = self.base_address as *mut u8;
     unsafe
     {
-      ptr.add(0).write_volatile(c);
+      let thr = ptr.add(0) as *mut u8;
+      thr.write_volatile(c);
     }
   }
 
@@ -83,14 +87,16 @@ impl Uart
     let ptr = self.base_address as *mut u8;
     unsafe
     {
+      let rbr = ptr.add(0) as *mut u8;
+      let lsr = ptr.add(5) as *mut u8;
       // If the LSR does not have data ready, ready None
-      if ptr.add(5).read_volatile() & 1 == 0
+      if lsr.read_volatile() & 1 == 0
       {
         None
       }
       else
       {
-        Some(ptr.add(0).read_volatile())
+        Some(rbr.read_volatile())
       }
     }
   }
