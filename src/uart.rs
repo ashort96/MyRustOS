@@ -1,104 +1,85 @@
+// Adam Short
+// 08/02/2020
+
 use core::convert::TryInto;
 use core::fmt::{Error, Write};
 
-
-pub struct Uart
-{
-  base_address: usize,
+pub struct Uart {
+    base_address: usize,
 }
 
-impl Write for Uart
-{
-  fn write_str(&mut self, s: &str) -> Result<(), Error>
-  {
-    for c in s.bytes()
-    {
-      self.put(c);
+impl Write for Uart {
+    fn write_str(&mut self, s: &str) -> Result<(), Error> {
+        for c in s.bytes() {
+            self.put(c);
+        }
+        Ok(())
     }
-    Ok(())
-  }
 }
 
-impl Uart
-{
-  pub fn new(base_address: usize) -> Self
-  {
-    Uart
-    {
-      base_address
-    }
-  }
+impl Uart {
 
-  pub fn init(&mut self)
-  {
+    ////////////////////////////////////////////////////////////////////////////
+    // Create a new Uart
+    ////////////////////////////////////////////////////////////////////////////
+    pub fn new(base_address: usize) -> Self {
+        Uart {
+            base_address
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Initialize the UART.
+    // - Set the word length to 8-bits by setting bits 1 and 0 of the LCR
+    // - Enable FIFOs by setting bit 0 of the FCR
+    // - Enable receiver interrupts by setting bit 0 of the IER
+    // - Write the divisor latch (least and most) and let the word length to 8-bits
+    ////////////////////////////////////////////////////////////////////////////
+    pub fn init(&mut self) {
+        let ptr = self.base_address as *mut u8;
+        unsafe {
+            let lcr = 0b11;
+            ptr.add(3).write_volatile(lcr);
+            ptr.add(2).write_volatile(0b01);
+            ptr.add(1).write_volatile(0b01);
+
+            let divisor: u16 = 592;
+            let divisor_least: u8 = (divisor & 0xff).try_into().unwrap();
+            let divisor_most: u8 = (divisor >> 8).try_into().unwrap();
+
+            ptr.add(3).write_volatile((1 << 7) | lcr);
+            ptr.add(0).write_volatile(divisor_least);
+            ptr.add(1).write_volatile(divisor_most);
+
+            ptr.add(3).write_volatile(lcr);
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Read from the UART
+    // If the DR (data ready) bit of the LCR is toggled, read the data
+    ////////////////////////////////////////////////////////////////////////////
+    pub fn get(&mut self) -> Option<u8> {
+        let ptr = self.base_address as *mut u8;
+        unsafe {
+            if ptr.add(5).read_volatile() & 1 == 0 {
+                None
+            }
+            else {
+                Some(ptr.add(0).read_volatile())
+            }
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Write to the UART
+    ////////////////////////////////////////////////////////////////////////////
+    pub fn put(&mut self, c: u8) {
+        let ptr = self.base_address as *mut u8;
+        unsafe {
+            ptr.add(0).write_volatile(c);
+        }
+    }
     
-    let ptr = self.base_address as *mut u8;
-
-    unsafe
-    {
-
-      // Rust gets mad if you don't use snake case
-      let ier = ptr.add(1) as *mut u8;
-      let fcr = ptr.add(2) as *mut u8;
-      let lcr = ptr.add(3) as *mut u8;
-
-      // Divisor registers. DLL holds the lower 8 bits, and DLM holds the higher
-      // 8 bits.
-      let dll = ptr as *mut u8;
-      let dlm = ptr.add(1) as *mut u8;
-
-      // Set word length which are bits 0 and 1 of the LCR 
-      lcr.write_volatile((1 << 0) | (1 << 1));
-      // Enable the FIFO
-      fcr.write_volatile(1 << 0);
-      // Enable receiver buffer interupts
-      ier.write_volatile(1 << 0);
-      
-      // Calculate the divisor
-      let divisor: u16 = 592;
-      let divisor_least = (divisor & 0xff).try_into().unwrap();
-      let divisor_most = ((divisor >> 8) & 0xff).try_into().unwrap();
-
-      // Set the DLAB
-      lcr.write_volatile(lcr.read_volatile() | (1 << 7));
-
-      // Put the divisor into DLL and DLM
-      dll.write_volatile(divisor_least);
-      dlm.write_volatile(divisor_most);
-
-      // Clear the DLAB
-      lcr.write_volatile(lcr.read_volatile() & !(1 << 7));
-
-    }
-  }
-
-  pub fn put(&mut self, c:u8)
-  {
-    let ptr = self.base_address as *mut u8;
-    unsafe
-    {
-      let thr = ptr.add(0) as *mut u8;
-      thr.write_volatile(c);
-    }
-  }
-
-  pub fn get(&mut self) -> Option<u8>
-  {
-    let ptr = self.base_address as *mut u8;
-    unsafe
-    {
-      let rbr = ptr.add(0) as *mut u8;
-      let lsr = ptr.add(5) as *mut u8;
-      // If the LSR does not have data ready, ready None
-      if lsr.read_volatile() & 1 == 0
-      {
-        None
-      }
-      else
-      {
-        Some(rbr.read_volatile())
-      }
-    }
-  }
 }
 
