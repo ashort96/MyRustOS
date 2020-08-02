@@ -33,7 +33,8 @@ impl Uart {
     // - Set the word length to 8-bits by setting bits 1 and 0 of the LCR
     // - Enable FIFOs by setting bit 0 of the FCR
     // - Enable receiver interrupts by setting bit 0 of the IER
-    // - Write the divisor latch (least and most) and let the word length to 8-bits
+    // - Write the divisor latch (least and most) and let the word length 
+    //   to 8-bits
     ////////////////////////////////////////////////////////////////////////////
     pub fn init(&mut self) {
         let ptr = self.base_address as *mut u8;
