@@ -1,8 +1,8 @@
-# trap.S
-# In the future our trap vector will go here.
+# Adam Short
+# 08/02/2020
 
+.section .text
 .global asm_trap_vector
-# This will be our trap vector when we start
-# handling interrupts.
+
 asm_trap_vector:
 	mret
