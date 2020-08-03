@@ -24,10 +24,10 @@ impl TrapFrame {
     pub const fn zero() -> Self {
         TrapFrame {
             regs:       [0; 32],
-            fregs:      [0, 32],
+            fregs:      [0; 32],
             satp:       0,
             trap_stack: null_mut(),
-            hatid:      0,
+            hartid:      0,
         }
     }
 }
@@ -115,7 +115,7 @@ pub fn sscratch_read() -> usize {
 pub fn sscratch_swap(to: usize) -> usize {
     unsafe {
         let from;
-        asm!("csrrw     $0, sscratch, $1" :"=r"(from) "r"(to));
+        asm!("csrrw     $0, sscratch, $1" :"=r"(from) :"r"(to));
         from
     }
 }

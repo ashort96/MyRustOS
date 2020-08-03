@@ -1,11 +1,12 @@
 // Adam Short
 // 08/02/2020
 
-usafe crate::cpu::TrapFrame;
+use crate::cpu::TrapFrame;
 
 #[no_mangle]
 extern "C" fn m_trap(
     epc: usize,
+    tval: usize,
     cause: usize,
     hart: usize,
     status: usize,
@@ -61,7 +62,7 @@ extern "C" fn m_trap(
                 println!("Store page fault! CPU#{} -> 0x{:08x}: 0x{:08x}", hart, epc, tval);
                 return_pc += 4;
             },
-            _ => { panic!("Unhandled sync trap! CPU#{} -> {}\n", hart, cause_num)};
+            _ => { panic!("Unhandled sync trap! CPU#{} -> {}\n", hart, cause_num); }
         }
     };
     return_pc
