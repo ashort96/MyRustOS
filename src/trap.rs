@@ -44,7 +44,7 @@ extern "C" fn m_trap(
               if let Some(c) = my_uart.get() {
                 match c {
                   // Backspace
-                  8 => {
+                  8 | 127 => {
                     print!("{} {}", 8 as char, 8 as char);
                   },
                   // \n or \r
