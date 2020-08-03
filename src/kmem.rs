@@ -40,8 +40,9 @@ impl AllocList {
     }
 
     pub fn set_size(&mut self, sz: usize) {
+        let k = self.is_taken();
         self.flags_size = sz & !AllocListFlags::Taken.val();
-        if self.is_taken() {
+        if k {
             self.flags_size |= AllocListFlags::Taken.val();
         }
     }
