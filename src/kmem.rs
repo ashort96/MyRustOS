@@ -18,13 +18,13 @@ impl AllocListFlags {
 }
 
 struct AllocList {
-    pub flag_size: usize
+    pub flags_size: usize
 }
 
 impl AllocList {
 
     pub fn is_taken(&self) -> bool {
-        self.flag_size & AllocListFlags::Taken.val() != 0
+        self.flags_size & AllocListFlags::Taken.val() != 0
     }
 
     pub fn is_free(&self) -> bool {
@@ -46,8 +46,8 @@ impl AllocList {
         }
     }
 
-    pub fn get_size(&mut self) -> usize {
-        self.flags_size & !AllocListFlags::Taken.val();
+    pub fn get_size(&self) -> usize {
+        self.flags_size & !AllocListFlags::Taken.val()
     }
 
 }
@@ -120,7 +120,7 @@ pub fn kmalloc(sz: usize) -> *mut u8 {
             }
         }
     }
-    null_mut();
+    null_mut()
 }
 
 pub fn kfree(ptr: *mut u8) {
@@ -154,7 +154,7 @@ pub fn coalesce() {
                 break;
             }
             else if (*head).is_free() && (*next).is_free() {
-                (*head.set_size((*head).get_size() + (*next).get_size()));
+                (*head).set_size((*head).get_size() + (*next).get_size());
             }
 
             head = (head as *mut u8).add((*head).get_size()) as *mut AllocList;
@@ -172,7 +172,7 @@ pub fn print_table() {
         let tail = (KMEM_HEAD as *mut u8).add(KMEM_ALLOC * PAGE_SIZE) as *mut AllocList;
 
         while head < tail {
-            println("{:p}: Length = {:<10} Taken = {}", head, (*head).get_size(), (*head).is_taken());
+            println!("{:p}: Length = {:<10} Taken = {}", head, (*head).get_size(), (*head).is_taken());
             head = (head as *mut u8).add((*head).get_size()) as *mut AllocList;
         }
     }

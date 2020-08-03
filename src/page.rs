@@ -11,11 +11,11 @@ extern "C" {
 
 static mut ALLOC_START: usize = 0;
 const PAGE_ORDER: usize = 12;
-pub const PAGE_SIZE: = 1 << PAGE_ORDER;
+pub const PAGE_SIZE: usize = 1 << PAGE_ORDER;
 
 pub const fn align_val(val: usize, order: usize) -> usize {
     let o = (1usize << order) - 1;
-    (val + 0) & !o
+    (val + o) & !o
 }
 
 #[repr(u8)]
@@ -37,146 +37,6 @@ pub struct Page {
 
 impl Page {
 
-    ////////////////////////////////////////////////////////////////////////////
-    // Initialize the allocater system
-    ////////////////////////////////////////////////////////////////////////////
-    pub fn init() {
-        unsafe {
-            let num_pages = HEAP_SIZE / PAGE_SIZE;
-            let ptr = HEAP_START as *mut Page;
-
-            for i in 0..num_pages {
-                (*ptr.add(i)).clear();
-            }
-
-            ALLOC_START = align_val(
-                HEAP_START + num_pages * size_of::<Page,>(),
-                PAGE_ORDER,
-            );
-        }
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Allocate a page or multiple pages
-    ////////////////////////////////////////////////////////////////////////////
-    pub fn alloc(pages: usize) -> *mut u8 {
-        assert!(pages > 0);
-        unsafe {
-            let num_pages = HEAP_SIZE / PAGE_SIZE;
-            let ptr = HEAP_START as *mut Page;
-
-            for i in 0..num_pages - pages {
-                let mut found = false;
-                if (*ptr.add(i)).is_free() {
-                    found = true;
-                    for j in i..i + pages {
-                        // If the next page is taken, move on
-                        if (*ptr.add(j)).is_taken() {
-                            found = false;
-                            break;
-                        }
-                    }
-                }
-
-                if found {
-                    for k in i..i + pages - 1 {
-                        (*ptr.add(k)).set_flag(PageBits::Taken);
-                    }
-
-                    (*ptr.add(i + pages - 1)).set_flag(PageBits::Taken);
-                    (*ptr.add(i + pages - 1)).set_flag(PageBits::Last);
-                    return (ALLOC_START + PAGE_SIZE * i) as *mut u8;
-                }
-
-            }
-        }
-        null_mut()
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Allocate and zero-out a page or multiple pages
-    ////////////////////////////////////////////////////////////////////////////
-    pub fn zalloc(pages: usize) -> *mut u8 {
-        let ret = alloc(pages);
-        if !ret.is_null() {
-            let size = (PAGE_SIZE * pages) / 8;
-            let big_ptr = ret as *mut u64;
-            for i in 0..size {
-                unsafe {
-                    (*big_ptr.add(i)) = 0;
-                }
-            }
-        }
-        ret
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Deallocate a page
-    ////////////////////////////////////////////////////////////////////////////    
-    pub fn dealloc(ptr: *mut u8) {
-        assert!(!ptr.is_null());
-        unsafe {
-            let addr = HEAP_START + (ptr as usize - ALLOC_START) / PAGE_SIZE;
-            assert!(addr >= HEAP_START && addr < HEAP_START + HEAP_SIZE);
-            let mut p = addr as *mut Page;
-            while (*p).is_taken() && !(*p).is_last() {
-                (*p).clear();
-                p = p.add(1);
-            }
-
-            assert!((*p).is_last == true, "Possible double free detected!");
-            (*p).clear();
-
-        }
-    }
-
-    // Mark: Helper functions below
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Used for debugging.
-    ////////////////////////////////////////////////////////////////////////////        
-    pub fn print_page_allocations() {
-        unsafe {
-            let num_pages = HEAP_SIZE / PAGE_SIZE;
-            let mut beg = HEAP_START as *const Page;
-            let end = beg.add(num_pages);
-            let alloc_beg = ALLOC_START;
-            let alloc_end = ALLOC_START + num_pages * PAGE_SIZE;
-            println!();
-            println!("PAGE ALLOCATION TABLE");
-            println!("META: {:p} -> {:p}", beg, end);
-            println!("PHYS: 0x{:x} -> 0x{:x}", alloc_beg, alloc_end);
-            println!();
-            let mut num = 0;
-            while beg < end {
-                if (*beg).is_taken() {
-                    let start = beg as usize;
-                    let memaddr = ALLOC_START + (start - HEAP_START) * PAGE_SIZE;
-                    println!("0x{:x} =>", memaddr);
-                    loop {
-                        num += 1;
-                        if (*beg).is_last() {
-                            let end = beg as usize;
-                            let memaddr = ALLOC_START + (end - HEAP_START) 
-                                          * PAGE_SIZE + PAGE_SIZE - 1;
-                            print!(
-                                "0x{:x}: {:>3} page(s)",
-                                memaddr, end - start + 1
-                            );
-                            println(".");
-                            break;
-                        }
-                        beg = beg.add(1);
-                    }
-                }
-                beg = beg.add(1);
-            }
-            println!();
-            println!("Allocated: {:>5} pages ({:>9} bytes.", num, num * PAGE_SIZE);
-            println!("Free:      {:>5} pages ({:>9{ bytes.", num_pages - num, (num_pages - num) * PAGE_SIZE);
-            println!();
-        }
-    }
 
     ////////////////////////////////////////////////////////////////////////////
     // Determine if this page has been marked as the final allocation
@@ -185,7 +45,9 @@ impl Page {
         if self.flags & PageBits::Last.val() != 0 {
             true
         }
-        false
+        else {
+            false
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -195,7 +57,9 @@ impl Page {
         if self.flags & PageBits::Taken.val() != 0 {
             true
         }
-        false
+        else {
+            false
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -227,6 +91,146 @@ impl Page {
     }
 
 }
+
+////////////////////////////////////////////////////////////////////////////
+// Initialize the allocater system
+////////////////////////////////////////////////////////////////////////////
+pub fn init() {
+    unsafe {
+        let num_pages = HEAP_SIZE / PAGE_SIZE;
+        let ptr = HEAP_START as *mut Page;
+
+        for i in 0..num_pages {
+            (*ptr.add(i)).clear();
+        }
+
+        ALLOC_START = align_val(
+            HEAP_START + num_pages * size_of::<Page,>(),
+            PAGE_ORDER,
+        );
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////
+// Allocate a page or multiple pages
+////////////////////////////////////////////////////////////////////////////
+pub fn alloc(pages: usize) -> *mut u8 {
+    assert!(pages > 0);
+    unsafe {
+        let num_pages = HEAP_SIZE / PAGE_SIZE;
+        let ptr = HEAP_START as *mut Page;
+
+        for i in 0..num_pages - pages {
+            let mut found = false;
+            if (*ptr.add(i)).is_free() {
+                found = true;
+                for j in i..i + pages {
+                    // If the next page is taken, move on
+                    if (*ptr.add(j)).is_taken() {
+                        found = false;
+                        break;
+                    }
+                }
+            }
+
+            if found {
+                for k in i..i + pages - 1 {
+                    (*ptr.add(k)).set_flag(PageBits::Taken);
+                }
+
+                (*ptr.add(i + pages - 1)).set_flag(PageBits::Taken);
+                (*ptr.add(i + pages - 1)).set_flag(PageBits::Last);
+                return (ALLOC_START + PAGE_SIZE * i) as *mut u8;
+            }
+
+        }
+    }
+    null_mut()
+}
+
+////////////////////////////////////////////////////////////////////////////
+// Allocate and zero-out a page or multiple pages
+////////////////////////////////////////////////////////////////////////////
+pub fn zalloc(pages: usize) -> *mut u8 {
+    let ret = alloc(pages);
+    if !ret.is_null() {
+        let size = (PAGE_SIZE * pages) / 8;
+        let big_ptr = ret as *mut u64;
+        for i in 0..size {
+            unsafe {
+                (*big_ptr.add(i)) = 0;
+            }
+        }
+    }
+    ret
+}
+
+////////////////////////////////////////////////////////////////////////////
+// Deallocate a page
+////////////////////////////////////////////////////////////////////////////    
+pub fn dealloc(ptr: *mut u8) {
+    assert!(!ptr.is_null());
+    unsafe {
+        let addr = HEAP_START + (ptr as usize - ALLOC_START) / PAGE_SIZE;
+        assert!(addr >= HEAP_START && addr < HEAP_START + HEAP_SIZE);
+        let mut p = addr as *mut Page;
+        while (*p).is_taken() && !(*p).is_last() {
+            (*p).clear();
+            p = p.add(1);
+        }
+
+        assert!((*p).is_last() == true, "Possible double free detected!");
+        (*p).clear();
+
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////
+// Used for debugging.
+////////////////////////////////////////////////////////////////////////////        
+pub fn print_page_allocations() {
+    unsafe {
+        let num_pages = HEAP_SIZE / PAGE_SIZE;
+        let mut beg = HEAP_START as *const Page;
+        let end = beg.add(num_pages);
+        let alloc_beg = ALLOC_START;
+        let alloc_end = ALLOC_START + num_pages * PAGE_SIZE;
+        println!();
+        println!("PAGE ALLOCATION TABLE");
+        println!("META: {:p} -> {:p}", beg, end);
+        println!("PHYS: 0x{:x} -> 0x{:x}", alloc_beg, alloc_end);
+        println!();
+        let mut num = 0;
+        while beg < end {
+            if (*beg).is_taken() {
+                let start = beg as usize;
+                let memaddr = ALLOC_START + (start - HEAP_START) * PAGE_SIZE;
+                println!("0x{:x} =>", memaddr);
+                loop {
+                    num += 1;
+                    if (*beg).is_last() {
+                        let end = beg as usize;
+                        let memaddr = ALLOC_START + (end - HEAP_START) 
+                                        * PAGE_SIZE + PAGE_SIZE - 1;
+                        print!(
+                            "0x{:x}: {:>3} page(s)",
+                            memaddr, end - start + 1
+                        );
+                        println!(".");
+                        break;
+                    }
+                    beg = beg.add(1);
+                }
+            }
+            beg = beg.add(1);
+        }
+        println!();
+        println!("Allocated: {:>5} pages ({:>9} bytes).", num, num * PAGE_SIZE);
+        println!("Free:      {:>5} pages ({:>9} bytes).", num_pages - num, (num_pages - num) * PAGE_SIZE);
+        println!();
+    }
+}
+
 
 #[repr(i64)]
 #[derive(Copy, Clone)]
@@ -291,7 +295,7 @@ impl Entry {
 }
 
 pub struct Table {
-    pub entries: [Entry, 512],
+    pub entries: [Entry; 512],
 }
 
 impl Table {
