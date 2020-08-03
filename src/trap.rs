@@ -2,6 +2,7 @@
 // 08/02/2020
 
 use crate::cpu::TrapFrame;
+use crate::{plic, uart};
 
 #[no_mangle]
 extern "C" fn m_trap(
@@ -14,7 +15,7 @@ extern "C" fn m_trap(
 ) -> usize {
     
     let is_async = {
-        if cause >> 63 & 0x1 == 1 {
+        if cause >> 63 & 1 == 1 {
             true
         }
          else {
@@ -34,7 +35,35 @@ extern "C" fn m_trap(
                 let mtime = 0x0200_bff8 as *const u64;
                 mtimecmp.write_volatile(mtime.read_volatile() + 10_000_000);
             },
-            11 => { println!("Machine external interrupt! CPU#{}", hart); },
+            11 => {
+				if let Some(interrupt) = plic::next() {
+					match interrupt {
+						// UART interrupt!
+						10 => {
+							let mut my_uart = uart::Uart::new(0x1000_0000);
+							if let Some(c) = my_uart.get() {
+								match c {
+									// Backspace
+									8 => {
+										print!("{} {}", 8 as char, 8 as char);
+									},
+									// \n or \r
+									10 | 13 => {
+										println!();
+									},
+									_ => {
+										print!("{}", c as char);
+									}
+								}
+							}
+						},
+						_ => {
+							println!("Non-UART external input: {}", interrupt);
+						}
+					}
+					plic::complete(interrupt);
+				}
+			},
             _ => { panic!("Unhandled async trap! CPU#{} -> {}\n", hart, cause_num); }
         }
     }
