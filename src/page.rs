@@ -105,7 +105,7 @@ pub fn init() {
         }
 
         ALLOC_START = align_val(
-            HEAP_START + num_pages * size_of::<Page,>(),
+            HEAP_START + num_pages * size_of::<Page>(),
             PAGE_ORDER,
         );
     }
@@ -157,9 +157,7 @@ pub fn zalloc(pages: usize) -> *mut u8 {
         let size = (PAGE_SIZE * pages) / 8;
         let big_ptr = ret as *mut u64;
         for i in 0..size {
-            unsafe {
-                (*big_ptr.add(i)) = 0;
-            }
+            unsafe { (*big_ptr.add(i)) = 0; }
         }
     }
     ret
@@ -331,7 +329,7 @@ pub fn map(root: &mut Table, vaddr: usize, paddr: usize, bits: i64, level: usize
             let page = zalloc(1);
             v.set_entry((page as i64 >> 2) | EntryBits::Valid.val());
         }
-        let entry = ((v.get_entry() & 0x3ff) << 2) as *mut Entry;
+        let entry = ((v.get_entry() & !0x3ff) << 2) as *mut Entry;
         v = unsafe { entry.add(vpn[i]).as_mut().unwrap() };
     }
 
