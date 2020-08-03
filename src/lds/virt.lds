@@ -2,8 +2,10 @@ OUTPUT_ARCH( "riscv" )
 
 ENTRY( _start )
 
-MEMORY {ram   (wxa!ri) : ORIGIN = 0x80000000, LENGTH = 128M}
-
+MEMORY
+{
+  ram   (wxa!ri) : ORIGIN = 0x80000000, LENGTH = 128M
+}
 
 PHDRS
 {
@@ -11,7 +13,6 @@ PHDRS
   data PT_LOAD;
   bss PT_LOAD;
 }
-
 
 SECTIONS
 {
@@ -22,9 +23,7 @@ SECTIONS
     *(.text.init) *(.text .text.*)
 
     PROVIDE(_text_end = .);
-
   } >ram AT>ram :text
-
    PROVIDE(_global_pointer = .);
   .rodata : {
     PROVIDE(_rodata_start = .);
@@ -35,6 +34,7 @@ SECTIONS
   .data : {
     . = ALIGN(4096);
     PROVIDE(_data_start = .);
+
     *(.sdata .sdata.*) *(.data .data.*)
     PROVIDE(_data_end = .);
   } >ram AT>ram :data
@@ -44,7 +44,6 @@ SECTIONS
     *(.sbss .sbss.*) *(.bss .bss.*)
     PROVIDE(_bss_end = .);
   } >ram AT>ram :bss
-
 
   PROVIDE(_memory_start = ORIGIN(ram));
   PROVIDE(_stack_start = _bss_end);
