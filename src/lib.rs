@@ -84,11 +84,15 @@ pub fn id_map_range(root: &mut page::Table,
     memaddr += 1 << 12;
   }
 }
+
+extern "C" {
+  fn switch_to_user(frame: usize, mepc: usize, satp: usize) -> !;
+}
 // ///////////////////////////////////
 // / ENTRY POINT
 // ///////////////////////////////////
 #[no_mangle]
-extern "C" fn kinit() -> usize {
+extern "C" fn kinit() {
   uart::Uart::new(0x1000_0000).init();
   page::init();
   kmem::init();
@@ -100,13 +104,18 @@ extern "C" fn kinit() -> usize {
   println!("UART interrupts have been enabled and are awaiting your command.");
   println!("Getting ready for first process.");
   println!("Issuing the first context-switch timer.");
+
   unsafe {
     let mtimecmp = 0x0200_4000 as *mut u64;
     let mtime = 0x0200_bff8 as *const u64;
     mtimecmp.write_volatile(mtime.read_volatile() + 10_000_000);
   }
 
-  ret
+  let (frame, mepc, satp) = sched::schedule();
+  unsafe { switch_to_user(frame, mepc, satp); }
+
+  println!("This should not print...");
+
 }
 #[no_mangle]
 extern "C" fn kinit_hart(hartid: usize) {
@@ -128,5 +137,7 @@ pub mod kmem;
 pub mod page;
 pub mod plic;
 pub mod process;
+pub mod sched;
+pub mod syscall;
 pub mod trap;
 pub mod uart;
