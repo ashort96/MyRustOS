@@ -38,8 +38,8 @@ extern "C" fn m_trap(
             // Machine timer
             7 => unsafe {
               let (frame, mepc, satp) = schedule();
-                      let mtimecmp = 0x0200_4000 as *mut u64;
-                      let mtime = 0x0200_bff8 as *const u64;
+              let mtimecmp = 0x0200_4000 as *mut u64;
+              let mtime = 0x0200_bff8 as *const u64;
               mtimecmp.write_volatile(mtime.read_volatile() + 10_000_000);
               switch_to_user(frame, mepc, satp);
             },
